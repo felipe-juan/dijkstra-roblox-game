@@ -1,0 +1,342 @@
+{
+  "name": "DijkstraUniversity",
+  "tree": {
+    "$className": "DataModel",
+    "Workspace": {
+      "Nodes": {
+        "$className": "Folder",
+        "Entrance": {
+          "$className": "Part",
+          "$properties": {
+            "Shape": "Ball",
+            "Size": [
+              8,
+              8,
+              8
+            ],
+            "Color": [
+              0.216,
+              0.541,
+              0.867
+            ],
+            "Material": "Neon",
+            "Anchored": true,
+            "CanCollide": false,
+            "Position": [
+              60,
+              5,
+              180
+            ]
+          }
+        },
+        "H001": {
+          "$className": "Part",
+          "$properties": {
+            "Shape": "Ball",
+            "Size": [
+              8,
+              8,
+              8
+            ],
+            "Color": [
+              0.216,
+              0.541,
+              0.867
+            ],
+            "Material": "Neon",
+            "Anchored": true,
+            "CanCollide": false,
+            "Position": [
+              160,
+              5,
+              60
+            ]
+          }
+        },
+        "H002": {
+          "$className": "Part",
+          "$properties": {
+            "Shape": "Ball",
+            "Size": [
+              8,
+              8,
+              8
+            ],
+            "Color": [
+              0.216,
+              0.541,
+              0.867
+            ],
+            "Material": "Neon",
+            "Anchored": true,
+            "CanCollide": false,
+            "Position": [
+              160,
+              5,
+              180
+            ]
+          }
+        },
+        "H003": {
+          "$className": "Part",
+          "$properties": {
+            "Shape": "Ball",
+            "Size": [
+              8,
+              8,
+              8
+            ],
+            "Color": [
+              0.216,
+              0.541,
+              0.867
+            ],
+            "Material": "Neon",
+            "Anchored": true,
+            "CanCollide": false,
+            "Position": [
+              160,
+              5,
+              300
+            ]
+          }
+        },
+        "H004": {
+          "$className": "Part",
+          "$properties": {
+            "Shape": "Ball",
+            "Size": [
+              8,
+              8,
+              8
+            ],
+            "Color": [
+              0.216,
+              0.541,
+              0.867
+            ],
+            "Material": "Neon",
+            "Anchored": true,
+            "CanCollide": false,
+            "Position": [
+              280,
+              5,
+              60
+            ]
+          }
+        },
+        "Courtyard": {
+          "$className": "Part",
+          "$properties": {
+            "Shape": "Ball",
+            "Size": [
+              8,
+              8,
+              8
+            ],
+            "Color": [
+              0.216,
+              0.541,
+              0.867
+            ],
+            "Material": "Neon",
+            "Anchored": true,
+            "CanCollide": false,
+            "Position": [
+              280,
+              5,
+              180
+            ]
+          }
+        },
+        "H005": {
+          "$className": "Part",
+          "$properties": {
+            "Shape": "Ball",
+            "Size": [
+              8,
+              8,
+              8
+            ],
+            "Color": [
+              0.216,
+              0.541,
+              0.867
+            ],
+            "Material": "Neon",
+            "Anchored": true,
+            "CanCollide": false,
+            "Position": [
+              280,
+              5,
+              300
+            ]
+          }
+        },
+        "H006": {
+          "$className": "Part",
+          "$properties": {
+            "Shape": "Ball",
+            "Size": [
+              8,
+              8,
+              8
+            ],
+            "Color": [
+              0.216,
+              0.541,
+              0.867
+            ],
+            "Material": "Neon",
+            "Anchored": true,
+            "CanCollide": false,
+            "Position": [
+              400,
+              5,
+              60
+            ]
+          }
+        },
+        "H007": {
+          "$className": "Part",
+          "$properties": {
+            "Shape": "Ball",
+            "Size": [
+              8,
+              8,
+              8
+            ],
+            "Color": [
+              0.216,
+              0.541,
+              0.867
+            ],
+            "Material": "Neon",
+            "Anchored": true,
+            "CanCollide": false,
+            "Position": [
+              400,
+              5,
+              180
+            ]
+          }
+        },
+        "Bathroom": {
+          "$className": "Part",
+          "$properties": {
+            "Shape": "Ball",
+            "Size": [
+              8,
+              8,
+              8
+            ],
+            "Color": [
+              0.216,
+              0.541,
+              0.867
+            ],
+            "Material": "Neon",
+            "Anchored": true,
+            "CanCollide": false,
+            "Position": [
+              400,
+              5,
+              300
+            ]
+          }
+        },
+        "H008": {
+          "$className": "Part",
+          "$properties": {
+            "Shape": "Ball",
+            "Size": [
+              8,
+              8,
+              8
+            ],
+            "Color": [
+              0.216,
+              0.541,
+              0.867
+            ],
+            "Material": "Neon",
+            "Anchored": true,
+            "CanCollide": false,
+            "Position": [
+              520,
+              5,
+              60
+            ]
+          }
+        },
+        "H009": {
+          "$className": "Part",
+          "$properties": {
+            "Shape": "Ball",
+            "Size": [
+              8,
+              8,
+              8
+            ],
+            "Color": [
+              0.216,
+              0.541,
+              0.867
+            ],
+            "Material": "Neon",
+            "Anchored": true,
+            "CanCollide": false,
+            "Position": [
+              520,
+              5,
+              180
+            ]
+          }
+        },
+        "H010": {
+          "$className": "Part",
+          "$properties": {
+            "Shape": "Ball",
+            "Size": [
+              8,
+              8,
+              8
+            ],
+            "Color": [
+              0.216,
+              0.541,
+              0.867
+            ],
+            "Material": "Neon",
+            "Anchored": true,
+            "CanCollide": false,
+            "Position": [
+              520,
+              5,
+              300
+            ]
+          }
+        }
+      },
+      "Edges": {
+        "$className": "Folder"
+      }
+    },
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src/shared"
+      },
+      "Events": {
+        "$className": "Folder"
+      }
+    },
+    "ServerScriptService": {
+      "$path": "src/server"
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "$path": "src/client"
+      }
+    }
+  }
+}

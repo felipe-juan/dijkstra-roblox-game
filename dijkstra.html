@@ -1,0 +1,583 @@
+
+<!DOCTYPE html>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;700;900&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:transparent}
+
+#app{
+  font-family:'DM Sans',sans-serif;
+  color:var(--color-text-primary);
+  padding:0.5rem 0 1rem;
+  user-select:none;
+}
+
+/* TOP BAR */
+#topbar{
+  display:flex;gap:10px;align-items:stretch;margin-bottom:10px;flex-wrap:wrap;
+}
+.tcard{
+  background:var(--color-background-secondary);
+  border:0.5px solid var(--color-border-tertiary);
+  border-radius:10px;
+  padding:6px 14px;
+  min-width:80px;
+}
+.tcard-label{font-size:10px;color:var(--color-text-tertiary);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.8px}
+.tcard-val{font-size:22px;font-weight:900;line-height:1.1}
+.tcard-val.green{color:#1D9E75}
+.tcard-val.red{color:#D85A30}
+.tcard-val.blue{color:#378ADD}
+
+#mission-card{
+  flex:1;min-width:200px;
+  background:var(--color-background-secondary);
+  border:0.5px solid var(--color-border-tertiary);
+  border-radius:10px;
+  padding:8px 14px;
+  display:flex;flex-direction:column;justify-content:center;
+}
+#mission-label{font-size:10px;color:var(--color-text-tertiary);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.8px}
+#mission-text{font-size:14px;font-weight:700;margin-top:2px}
+#mission-sub{font-size:11px;color:var(--color-text-secondary);font-family:'IBM Plex Mono',monospace;margin-top:2px}
+
+/* CANVAS */
+#canvas-wrap{
+  border:0.5px solid var(--color-border-tertiary);
+  border-radius:12px;
+  overflow:hidden;
+  background:var(--color-background-secondary);
+  position:relative;
+}
+canvas{display:block;width:100%}
+
+/* PENALTY FLASH */
+#penalty-flash{
+  position:absolute;inset:0;
+  background:rgba(216,90,48,0);
+  border-radius:12px;
+  pointer-events:none;
+  transition:background .1s;
+  display:flex;align-items:center;justify-content:center;
+}
+#penalty-flash.active{background:rgba(216,90,48,0.18)}
+#penalty-msg{
+  font-size:24px;font-weight:900;
+  color:#D85A30;
+  opacity:0;
+  transition:opacity .1s;
+  background:var(--color-background-secondary);
+  border:2px solid #D85A30;
+  border-radius:10px;
+  padding:8px 22px;
+  font-family:'IBM Plex Mono',monospace;
+}
+#penalty-flash.active #penalty-msg{opacity:1}
+
+/* MSG BAR */
+#msgbar{
+  margin-top:8px;
+  padding:8px 14px;
+  background:var(--color-background-secondary);
+  border:0.5px solid var(--color-border-tertiary);
+  border-radius:8px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12px;
+  color:var(--color-text-secondary);
+  min-height:34px;
+  display:flex;align-items:center;gap:8px;
+}
+
+/* NEIGHBOR BUTTONS */
+#nb-panel{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}
+.nb-btn{
+  font-family:'IBM Plex Mono',monospace;font-size:11px;
+  padding:7px 14px;border-radius:8px;
+  border:0.5px solid var(--color-border-secondary);
+  background:var(--color-background-primary);
+  color:var(--color-text-primary);
+  cursor:pointer;transition:all .15s;
+  display:flex;align-items:center;gap:7px;
+}
+.nb-btn:hover{background:var(--color-background-secondary);border-color:var(--color-border-primary)}
+.nb-btn .cost-tag{
+  font-size:10px;padding:1px 6px;border-radius:4px;
+  background:var(--color-background-secondary);
+  color:var(--color-text-secondary);
+}
+
+/* BOTTOM ROW */
+#bot-row{margin-top:8px;display:flex;gap:8px;align-items:center}
+.act-btn{
+  font-family:'IBM Plex Mono',monospace;font-size:11px;
+  padding:6px 13px;border-radius:8px;
+  border:0.5px solid var(--color-border-secondary);
+  background:var(--color-background-primary);
+  color:var(--color-text-secondary);cursor:pointer;transition:all .15s;
+}
+.act-btn:hover{background:var(--color-background-secondary);color:var(--color-text-primary)}
+#hint-out{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-text-tertiary);margin-left:4px}
+#score-out{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--color-text-tertiary)}
+
+/* ROUND RESULT OVERLAY */
+#overlay{
+  position:absolute;inset:0;border-radius:12px;
+  background:rgba(0,0,0,0.55);
+  display:none;align-items:center;justify-content:center;z-index:10;
+}
+#overlay.show{display:flex}
+#overlay-box{
+  background:var(--color-background-primary);
+  border:1px solid var(--color-border-secondary);
+  border-radius:14px;
+  padding:24px 28px;
+  max-width:320px;width:90%;
+  text-align:center;
+}
+#ov-icon{font-size:36px;margin-bottom:8px}
+#ov-title{font-size:20px;font-weight:900;margin-bottom:4px}
+#ov-body{font-size:13px;color:var(--color-text-secondary);font-family:'IBM Plex Mono',monospace;margin-bottom:16px;line-height:1.5}
+#ov-next{
+  font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;
+  padding:9px 22px;border-radius:8px;
+  background:#1D9E75;color:#fff;border:none;cursor:pointer;
+}
+
+/* LEGEND */
+#legend{margin-top:8px;display:flex;gap:14px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--color-text-tertiary)}
+.leg{display:flex;align-items:center;gap:5px}
+.ldot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+</style>
+
+<div id="app">
+  <div id="topbar">
+    <div class="tcard">
+      <div class="tcard-label">Your Cost</div>
+      <div class="tcard-val" id="stat-cost">0</div>
+    </div>
+    <div class="tcard">
+      <div class="tcard-label">Optimal</div>
+      <div class="tcard-val green" id="stat-opt">?</div>
+    </div>
+    <div class="tcard">
+      <div class="tcard-label">Penalty</div>
+      <div class="tcard-val red" id="stat-pen">+0</div>
+    </div>
+    <div class="tcard">
+      <div class="tcard-label">Round</div>
+      <div class="tcard-val blue" id="stat-round">1</div>
+    </div>
+    <div id="mission-card">
+      <div id="mission-label">Current Mission</div>
+      <div id="mission-text">–</div>
+      <div id="mission-sub">From ? → To ?</div>
+    </div>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="c" width="640" height="360"></canvas>
+    <div id="penalty-flash"><div id="penalty-msg"></div></div>
+    <div id="overlay">
+      <div id="overlay-box">
+        <div id="ov-icon">🎉</div>
+        <div id="ov-title">Mission Complete!</div>
+        <div id="ov-body">–</div>
+        <button id="ov-next" onclick="nextRound()">Next Round →</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="msgbar">
+    <span id="msg-icon">🏫</span>
+    <span id="msg-txt">Loading university...</span>
+  </div>
+
+  <div id="nb-panel"></div>
+
+  <div id="bot-row">
+    <button class="act-btn" onclick="showHint()">💡 Hint</button>
+    <button class="act-btn" onclick="restartRound()">↺ Restart Round</button>
+    <span id="hint-out"></span>
+    <span id="score-out">Total score: 0</span>
+  </div>
+
+  <div id="legend">
+    <div class="leg"><div class="ldot" style="background:#1D9E75"></div>You are here</div>
+    <div class="leg"><div class="ldot" style="background:#D85A30"></div>Destination</div>
+    <div class="leg"><div class="ldot" style="background:#888780;opacity:.6"></div>Visited</div>
+    <div class="leg"><div class="ldot" style="background:#378ADD;opacity:.5"></div>Unvisited</div>
+    <div class="leg"><div class="ldot" style="background:#D85A30;opacity:.3"></div>Wrong path = +penalty</div>
+  </div>
+</div>
+
+<script>
+// ─── FIXED NODE LAYOUT ───────────────────────────────────────────────
+// University blueprint. Positions fixed, roles fixed, edges randomized per round.
+
+const W=640, H=360;
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+canvas.width=W; canvas.height=H;
+
+const NODES=[
+  // id, x, y, name, emoji, type
+  {id:0, x:60,  y:180, name:'Entrance',   emoji:'🚪', type:'entrance'},
+  {id:1, x:160, y:60,  name:'H001',       emoji:'📋', type:'classroom'},
+  {id:2, x:160, y:180, name:'H002',       emoji:'📋', type:'classroom'},
+  {id:3, x:160, y:300, name:'H003',       emoji:'📋', type:'classroom'},
+  {id:4, x:280, y:60,  name:'H004',       emoji:'📋', type:'classroom'},
+  {id:5, x:280, y:180, name:'Courtyard',  emoji:'🌸', type:'courtyard'},
+  {id:6, x:280, y:300, name:'H005',       emoji:'📋', type:'classroom'},
+  {id:7, x:400, y:60,  name:'H006',       emoji:'📋', type:'classroom'},
+  {id:8, x:400, y:180, name:'H007',       emoji:'📋', type:'classroom'},
+  {id:9, x:400, y:300, name:'Bathroom',   emoji:'🚻', type:'bathroom'},
+  {id:10,x:520, y:60,  name:'H008',       emoji:'📋', type:'classroom'},
+  {id:11,x:520, y:180, name:'H009',       emoji:'📋', type:'classroom'},
+  {id:12,x:520, y:300, name:'H010',       emoji:'📋', type:'classroom'},
+];
+
+// Fixed possible edges (pairs that make geographic sense in a floor plan)
+const POSSIBLE_EDGES=[
+  [0,1],[0,2],[0,3],
+  [1,2],[1,4],[2,3],[2,5],[3,6],
+  [4,5],[4,7],[5,6],[5,8],[6,9],
+  [7,8],[7,10],[8,9],[8,11],[9,12],
+  [10,11],[11,12],
+  // some diagonal shortcuts
+  [4,8],[5,9],[2,8],[5,11],
+];
+
+// Mission templates
+const MISSIONS=[
+  {emoji:'📝',verb:'Deliver exam to',types:['classroom']},
+  {emoji:'🧻',verb:'Restock toilet paper at',types:['bathroom']},
+  {emoji:'💐',verb:'Water the flowers in',types:['courtyard']},
+  {emoji:'👋',verb:'Receive visitor at',types:['entrance']},
+  {emoji:'📦',verb:'Drop supplies at',types:['classroom']},
+];
+
+// ─── STATE ───────────────────────────────────────────────────────────
+let adj, edgeMap, src, dst, mission;
+let playerPos, visited, playerCost, penaltyTotal, optimalCost, optimalPath;
+let done=false, roundNum=1, totalScore=0;
+
+// ─── INIT ─────────────────────────────────────────────────────────────
+function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+
+function buildGraph(){
+  adj=Array.from({length:NODES.length},()=>[]);
+  edgeMap=new Map();
+
+  // Ensure connectivity: spanning tree first
+  const perm=[...Array(NODES.length).keys()].sort(()=>Math.random()-.5);
+  for(let i=1;i<perm.length;i++){
+    const u=perm[Math.floor(Math.random()*i)], v=perm[i];
+    const w=rnd(1,12);
+    adj[u].push([v,w]); adj[v].push([u,w]);
+    edgeMap.set(`${Math.min(u,v)}_${Math.max(u,v)}`,w);
+  }
+
+  // Randomize a subset of the possible edges
+  const extra=[...POSSIBLE_EDGES].sort(()=>Math.random()-.5).slice(0,rnd(8,14));
+  for(const [u,v] of extra){
+    const k=`${Math.min(u,v)}_${Math.max(u,v)}`;
+    if(!edgeMap.has(k)){
+      const w=rnd(1,18);
+      adj[u].push([v,w]); adj[v].push([u,w]);
+      edgeMap.set(k,w);
+    }
+  }
+}
+
+function pickMission(){
+  // pick a random mission template
+  const tpl=MISSIONS[rnd(0,MISSIONS.length-1)];
+  // pick src and dst that are different and of allowed types
+  const candidates=NODES.filter(n=>tpl.types.includes(n.type));
+  // src is any node NOT in tpl.types (player starts somewhere random)
+  const srcCandidates=NODES.filter(n=>!tpl.types.includes(n.type)||n.type==='courtyard');
+  let s=srcCandidates[rnd(0,srcCandidates.length-1)];
+  let d=candidates[rnd(0,candidates.length-1)];
+  if(s.id===d.id) d=candidates[(candidates.indexOf(d)+1)%candidates.length];
+  return {tpl, src:s.id, dst:d.id};
+}
+
+function dijkstra(s){
+  const dist=Array(NODES.length).fill(Infinity);
+  const prev=Array(NODES.length).fill(-1);
+  dist[s]=0;
+  const vis=Array(NODES.length).fill(false);
+  for(let i=0;i<NODES.length;i++){
+    let u=-1;
+    for(let v=0;v<NODES.length;v++) if(!vis[v]&&(u===-1||dist[v]<dist[u])) u=v;
+    if(u===-1||dist[u]===Infinity) break;
+    vis[u]=true;
+    for(const [v,w] of adj[u]) if(dist[u]+w<dist[v]){dist[v]=dist[u]+w;prev[v]=u;}
+  }
+  return {dist,prev};
+}
+
+function tracePath(prev,d){
+  const p=[];let c=d;
+  while(c!==-1){p.unshift(c);c=prev[c];}
+  return p;
+}
+
+function initRound(){
+  done=false;
+  document.getElementById('overlay').classList.remove('show');
+  buildGraph();
+  const m=pickMission();
+  src=m.src; dst=m.dst; mission=m.tpl;
+  playerPos=src; visited=[src]; playerCost=0; penaltyTotal=0;
+  const {dist,prev}=dijkstra(src);
+  optimalCost=dist[dst];
+  optimalPath=tracePath(prev,dst);
+  document.getElementById('stat-round').textContent=roundNum;
+  document.getElementById('stat-opt').textContent=optimalCost;
+  document.getElementById('stat-pen').textContent='+0';
+  document.getElementById('stat-cost').textContent='0';
+  document.getElementById('hint-out').textContent='';
+  setMissionCard();
+  updateStats();
+  render();
+  showNeighbors();
+}
+
+function setMissionCard(){
+  document.getElementById('mission-text').textContent=`${mission.emoji} ${mission.verb} ${NODES[dst].name}`;
+  document.getElementById('mission-sub').textContent=`From: ${NODES[src].name} ${NODES[src].emoji}  →  To: ${NODES[dst].name} ${NODES[dst].emoji}`;
+}
+
+function updateStats(){
+  document.getElementById('stat-cost').textContent=playerCost;
+  document.getElementById('stat-pen').textContent='+'+(penaltyTotal);
+  document.getElementById('score-out').textContent=`Total score: ${totalScore}`;
+}
+
+// ─── TRAVEL ──────────────────────────────────────────────────────────
+function travel(v,w){
+  if(done) return;
+
+  // Check if this step is on the optimal path from current position
+  const {dist}=dijkstra(playerPos);
+  const bestNext=getBestNeighbor();
+  const isWrong=(bestNext!==null && v!==bestNext);
+
+  visited.push(v);
+  playerPos=v;
+  playerCost+=w;
+
+  if(isWrong){
+    // Penalty = cost paid MINUS what the best step would have cost
+    const bestW=getEdgeW(visited[visited.length-2], bestNext);
+    const pen=Math.max(1,w); // at minimum +1
+    penaltyTotal+=pen;
+    flashPenalty(`+${pen} penalty!`);
+  }
+
+  updateStats();
+  render();
+
+  if(v===dst){
+    done=true;
+    endRound();
+    return;
+  }
+  showNeighbors();
+}
+
+function getEdgeW(u,v){
+  const k=`${Math.min(u,v)}_${Math.max(u,v)}`;
+  return edgeMap.get(k)||999;
+}
+
+function getBestNeighbor(){
+  // Among unvisited neighbors, which leads to the best total cost to dst?
+  const {dist}=dijkstra(dst);
+  const neighbors=adj[playerPos]||[];
+  const unvis=neighbors.filter(([v])=>!visited.includes(v));
+  if(!unvis.length) return null;
+  let best=null,bestVal=Infinity;
+  for(const [v,w] of unvis){
+    const total=w+(dist[v]===Infinity?9999:dist[v]);
+    if(total<bestVal){bestVal=total;best=v;}
+  }
+  return best;
+}
+
+function flashPenalty(txt){
+  const el=document.getElementById('penalty-flash');
+  const msg=document.getElementById('penalty-msg');
+  msg.textContent=txt;
+  el.classList.add('active');
+  setTimeout(()=>el.classList.remove('active'),800);
+}
+
+function showNeighbors(){
+  const panel=document.getElementById('nb-panel');
+  const neighbors=adj[playerPos]||[];
+  const unvis=neighbors.filter(([v])=>!visited.includes(v));
+
+  if(!unvis.length&&playerPos!==dst){
+    setMsg('🚫','Dead end — no unvisited neighbors. Restart this round.');
+    panel.innerHTML=''; return;
+  }
+
+  panel.innerHTML='';
+  const best=getBestNeighbor();
+  const {dist}=dijkstra(dst);
+
+  for(const [v,w] of unvis){
+    const btn=document.createElement('button');
+    btn.className='nb-btn';
+    const isB=v===best;
+    const remainEst=dist[v]===Infinity?'∞':dist[v];
+    btn.innerHTML=`
+      <span>${NODES[v].emoji} ${NODES[v].name}</span>
+      <span class="cost-tag">cost ${w}</span>
+    `;
+    // Visual hint: no spoiler but wrong choices have a subtle orange tint
+    if(!isB) btn.style.borderColor='rgba(216,90,48,0.3)';
+    btn.title=isB?'Looks like a smart choice...':'This might not be optimal';
+    btn.onclick=()=>travel(v,w);
+    panel.appendChild(btn);
+  }
+
+  setMsg('📍',`You're at <b>${NODES[playerPos].emoji} ${NODES[playerPos].name}</b>. 
+    Mission: ${mission.emoji} ${mission.verb} <b>${NODES[dst].name}</b>.`);
+}
+
+function setMsg(icon,html){
+  document.getElementById('msg-icon').textContent=icon;
+  document.getElementById('msg-txt').innerHTML=html;
+}
+
+function showHint(){
+  const best=getBestNeighbor();
+  if(!best) return;
+  document.getElementById('hint-out').textContent=`→ go to ${NODES[best].name}`;
+  setTimeout(()=>document.getElementById('hint-out').textContent='',3000);
+}
+
+function restartRound(){
+  initRound();
+}
+
+function nextRound(){
+  roundNum++;
+  initRound();
+}
+
+function endRound(){
+  document.getElementById('nb-panel').innerHTML='';
+  const diff=playerCost-optimalCost;
+  const perfect=diff===0&&penaltyTotal===0;
+  const roundScore=Math.max(0, optimalCost*2 - playerCost - penaltyTotal);
+  totalScore+=roundScore;
+  updateStats();
+
+  document.getElementById('ov-icon').textContent=perfect?'🏆':(diff<=2?'🎯':'📚');
+  document.getElementById('ov-title').textContent=perfect?'Perfect Path!':'Mission Done!';
+  document.getElementById('ov-body').innerHTML=
+    `Your cost: <b>${playerCost}</b>  |  Optimal: <b>${optimalCost}</b><br>`+
+    `Penalty incurred: <b>+${penaltyTotal}</b><br>`+
+    `Round score: <b>${roundScore}</b><br><br>`+
+    (perfect?'You walked Dijkstra\'s exact optimal path! 🧠':
+     diff===0?'Optimal cost, but took some detours!':
+     `You overpaid by ${diff}. Next round try the cheaper path!`);
+  document.getElementById('overlay').classList.add('show');
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────
+function isDark(){return window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches}
+
+function render(){
+  ctx.clearRect(0,0,W,H);
+  const dark=isDark();
+  const tc=dark?'#c2c0b6':'#3d3d3a';
+  const mc=dark?'#5F5E5A':'#888780';
+  const ec=dark?'#3d3d3a':'#d3d1c7';
+
+  // Draw all edges
+  for(const [key,w] of edgeMap){
+    const [a,b]=key.split('_').map(Number);
+    // Is this edge on optimal path?
+    const onOpt=optimalPath&&optimalPath.some((p,i)=>i>0&&
+      ((optimalPath[i-1]===a&&p===b)||(optimalPath[i-1]===b&&p===a)));
+    // Is this edge on player's trail?
+    const onTrail=visited.some((p,i)=>i>0&&
+      ((visited[i-1]===a&&p===b)||(visited[i-1]===b&&p===a)));
+
+    ctx.beginPath();
+    ctx.moveTo(NODES[a].x,NODES[a].y);
+    ctx.lineTo(NODES[b].x,NODES[b].y);
+    ctx.strokeStyle=onTrail?'#378ADD':onOpt?(dark?'#3B6D11':'#9FE1CB'):ec;
+    ctx.lineWidth=onTrail?2.5:onOpt?1.5:1;
+    ctx.stroke();
+
+    // Edge weight
+    const mx=(NODES[a].x+NODES[b].x)/2, my=(NODES[a].y+NODES[b].y)/2;
+    const bw=14,bh=13;
+    ctx.fillStyle=dark?'#2C2C2A':'#F1EFE8';
+    ctx.beginPath();ctx.roundRect(mx-bw,my-bh/2-1,bw*2,bh+2,3);ctx.fill();
+    ctx.font=`600 9px "IBM Plex Mono",monospace`;
+    ctx.fillStyle=mc;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(w,mx,my);
+  }
+
+  // Draw nodes
+  for(const n of NODES){
+    const isPlayer=n.id===playerPos;
+    const isDst=n.id===dst;
+    const isVisited=visited.includes(n.id)&&!isPlayer;
+    const isSrc=n.id===src&&!isPlayer;
+
+    let fill,stroke,r=20;
+
+    if(isPlayer){fill='#1D9E75';stroke='#0F6E56';}
+    else if(isDst&&done){fill='#1D9E75';stroke='#0F6E56';}
+    else if(isDst){fill='#D85A30';stroke='#993C1D';r=22;}
+    else if(isVisited){fill=dark?'#444441':'#D3D1C7';stroke=dark?'#5F5E5A':'#B4B2A9';}
+    else{fill=dark?'#2C2C2A':'#E6F1FB';stroke=dark?'#4a4a48':'#B5D4F4';}
+
+    // Pulse ring for player
+    if(isPlayer){
+      ctx.beginPath();ctx.arc(n.x,n.y,r+5,0,Math.PI*2);
+      ctx.strokeStyle='#1D9E75';ctx.lineWidth=1;ctx.globalAlpha=0.35;ctx.stroke();
+      ctx.globalAlpha=1;
+    }
+    // Pulse ring for destination
+    if(isDst&&!done){
+      ctx.beginPath();ctx.arc(n.x,n.y,r+5,0,Math.PI*2);
+      ctx.strokeStyle='#D85A30';ctx.lineWidth=1.5;ctx.globalAlpha=0.35;ctx.stroke();
+      ctx.globalAlpha=1;
+    }
+
+    ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);
+    ctx.fillStyle=fill;ctx.fill();
+    ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke();
+
+    // Emoji
+    ctx.font=`${r-4}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(n.emoji,n.x,n.y-1);
+
+    // Name label below
+    ctx.font=`500 9px "DM Sans",sans-serif`;
+    ctx.fillStyle=tc;ctx.textAlign='center';ctx.textBaseline='top';
+    ctx.fillText(n.name,n.x,n.y+r+3);
+  }
+}
+
+initRound();
+
+// Simple animation loop for pulsing rings
+let frame=0;
+function loop(){
+  frame++;
+  if(frame%12===0) render();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>

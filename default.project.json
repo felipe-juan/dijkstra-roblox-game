@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/rojo-rbx/rojo/master/schemas/project.schema.json",
   "name": "DijkstraUniversity",
   "tree": {
     "$className": "DataModel",

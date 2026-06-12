@@ -85,6 +85,14 @@ local timerActive      = false
 -- StartMenu is never bypassed by a server-initiated fire.
 local gameStarted      = false
 
+-- FIX: when the player presses the "⬅ Menu" button mid-round, gameStarted
+-- intentionally stays true (so a respawn mid-game still re-syncs state).
+-- But a respawn-triggered GameStateRemote fire while the StartMenu is open
+-- was previously forcing MainContainer back into view, yanking the player
+-- out of the menu against their will. This flag lets the handler keep
+-- gameState in sync in the background without touching UI visibility.
+local viewingMenu      = false
+
 -- Free Roam mode: all game UI hidden, only a small "Menu" button visible.
 local freeRoamActive   = false
 
@@ -94,6 +102,9 @@ local TOP_DOWN_HEIGHT  = 120
 local topDownZoom      = TOP_DOWN_HEIGHT
 local TOP_DOWN_MIN     = 40
 local TOP_DOWN_MAX     = 300
+local topDownRotation  = 0              -- degrees applied as roll (0 = default / 360°)
+local ROTATE_STEPS     = {0, 90, 180, 270}
+local rotateIdx        = 1              -- index into ROTATE_STEPS
 
 -- Forward declarations
 local ScreenGui, MainContainer, StartMenu
@@ -105,7 +116,7 @@ local Overlay, OvBox, OvIcon, OvTitle, OvBody, OvNext
 local FailOverlay, FailRestartBtn
 local ConnPanel, ConnScroll, ConnTitle
 local ValCost, ValOpt, ValPen, ValRound, ValTotal
-local BtnRestart, TopDownBtn
+local BtnRestart, TopDownBtn, TopDownRotateBtn
 local MText, MSub
 local BtnFreeRoam         -- forward declaration for Free Roam button
 local FreeRoamMenuBtn     -- the small "⬅ Menu" shown during free roam
@@ -113,8 +124,10 @@ local FreeRoamMenuBtn     -- the small "⬅ Menu" shown during free roam
 -- ============================================================
 --  TIMER CONSTANTS
 -- ============================================================
-local TIMER_BASE_SECS     = 20
-local TIMER_SECS_PER_EDGE = 15
+local TIMER_BASE_SECS       = 20
+local TIMER_SECS_PER_EDGE   = 15
+local TIMER_PULSE_THRESHOLD = 0.25   -- start pulsing below 25% remaining
+local timerPulseTween       = nil    -- looping tween handle; nil when inactive
 
 -- ============================================================
 --  SCREENGUI
@@ -312,8 +325,8 @@ do
 	g.Rotation = 45; g.Parent = StartMenu
 end
 
-makeLabel(StartMenu,"Universidade Dijkstra",Enum.Font.GothamBlack,56,Color3.fromRGB(55,138,221),UDim2.new(0,4,0.2,4),UDim2.new(1,0,0,120),1)
-makeLabel(StartMenu,"Universidade Dijkstra",Enum.Font.GothamBlack,56,Color3.new(1,1,1),UDim2.new(0,0,0.2,0),UDim2.new(1,0,0,120),2)
+makeLabel(StartMenu,"IFBA com Djikistra",Enum.Font.GothamBlack,56,Color3.fromRGB(55,138,221),UDim2.new(0,4,0.2,4),UDim2.new(1,0,0,120),1)
+makeLabel(StartMenu,"IFBA com Djikistra",Enum.Font.GothamBlack,56,Color3.new(1,1,1),UDim2.new(0,0,0.2,0),UDim2.new(1,0,0,120),2)
 makeLabel(StartMenu,"Aprenda Grafos Jogando!",Enum.Font.GothamMedium,24,Color3.fromRGB(200,200,200),UDim2.new(0,0,0.2,80),UDim2.new(1,0,0,40))
 
 local function makeMenuBtn(text, bgColor, posY)
@@ -460,6 +473,10 @@ ValTotal.TextXAlignment = Enum.TextXAlignment.Right; ValTotal.TextYAlignment = E
 -- ============================================================
 --  CONEXÕES PERCORRIDAS PANEL
 -- ============================================================
+-- Forward-declare here so the functions are reachable after the do-block
+-- without resorting to the fragile _G global-table workaround.
+local rebuildConnUI, clearConnLog, addConnEntry
+
 do
 	local CONN_LINE_H   = 24
 	local CONN_MAX_SHOW = 10
@@ -513,7 +530,7 @@ do
 	local BADGE_OPT    = Color3.fromRGB(40,  170,  80)
 	local BADGE_WRONG  = Color3.fromRGB(200,  40,  40)
 
-	local function rebuildConnUI()
+	rebuildConnUI = function()
 		for _, c in ipairs(ConnScroll:GetChildren()) do
 			if c:IsA("Frame") or c:IsA("TextLabel") then c:Destroy() end
 		end
@@ -573,23 +590,15 @@ do
 		end)
 	end
 
-	_G._rebuildConnUI = rebuildConnUI
-
-	local function clearConnLog()
+	clearConnLog = function()
 		connectionLog = {}; ConnPanel.Visible = false; rebuildConnUI()
 	end
-	_G._clearConnLog = clearConnLog
 
-	local function addConnEntry(from, to, cost, wasOptimal)
+	addConnEntry = function(from, to, cost, wasOptimal)
 		table.insert(connectionLog, {from=from, to=to, cost=cost, wasOptimal=wasOptimal})
 		rebuildConnUI()
 	end
-	_G._addConnEntry = addConnEntry
 end
-
-local rebuildConnUI = _G._rebuildConnUI
-local clearConnLog  = _G._clearConnLog
-local addConnEntry  = _G._addConnEntry
 
 -- ============================================================
 --  MISSION CARD  (top centre)
@@ -647,8 +656,16 @@ local function startTimer(numEdges)
 	TimerFill.Size=UDim2.new(1,0,1,0); TimerLabel.Text="⏱ "..tostring(math.ceil(timerRemaining))
 end
 
+local function stopTimerPulse()
+	if timerPulseTween then
+		timerPulseTween:Cancel(); timerPulseTween = nil
+		TimerBar.BackgroundColor3 = Color3.fromRGB(35,35,42)
+	end
+end
+
 local function stopTimer()
 	timerActive=false; TimerBar.Visible=false
+	stopTimerPulse()
 end
 
 -- ============================================================
@@ -679,7 +696,7 @@ piDot.ZIndex=12; piDot.Parent=PlayerIcon
 --  BOTTOM BAR
 -- ============================================================
 local BottomRow = Instance.new("Frame")
-BottomRow.Size=UDim2.new(0,460,0,40); BottomRow.Position=UDim2.new(0,20,1,-60)
+BottomRow.Size=UDim2.new(0,590,0,40); BottomRow.Position=UDim2.new(0,20,1,-60)
 BottomRow.BackgroundTransparency=1; BottomRow.Parent=MainContainer
 
 BtnRestart = Instance.new("TextButton")
@@ -694,8 +711,14 @@ TopDownBtn.Position=UDim2.new(0,150,0,0); TopDownBtn.BackgroundColor3=Color3.fro
 TopDownBtn.TextColor3=Color3.fromRGB(180,180,220); TopDownBtn.Font=Enum.Font.Code; TopDownBtn.TextSize=13
 Instance.new("UICorner",TopDownBtn).CornerRadius=UDim.new(0,8); TopDownBtn.Parent=BottomRow
 
+TopDownRotateBtn = Instance.new("TextButton")
+TopDownRotateBtn.Text="↻ 360° [R]"; TopDownRotateBtn.Size=UDim2.new(0,120,1,0)
+TopDownRotateBtn.Position=UDim2.new(0,340,0,0); TopDownRotateBtn.BackgroundColor3=Color3.fromRGB(30,30,42)
+TopDownRotateBtn.TextColor3=Color3.fromRGB(90,90,110); TopDownRotateBtn.Font=Enum.Font.Code; TopDownRotateBtn.TextSize=13
+Instance.new("UICorner",TopDownRotateBtn).CornerRadius=UDim.new(0,8); TopDownRotateBtn.Parent=BottomRow
+
 local MenuBtn = Instance.new("TextButton")
-MenuBtn.Text="⬅ Menu"; MenuBtn.Size=UDim2.new(0,110,1,0); MenuBtn.Position=UDim2.new(0,340,0,0)
+MenuBtn.Text="⬅ Menu"; MenuBtn.Size=UDim2.new(0,110,1,0); MenuBtn.Position=UDim2.new(0,470,0,0)
 MenuBtn.BackgroundColor3=Color3.fromRGB(50,50,60); MenuBtn.TextColor3=Color3.new(1,1,1)
 MenuBtn.Font=Enum.Font.Code; MenuBtn.TextSize=14
 Instance.new("UICorner",MenuBtn).CornerRadius=UDim.new(0,8); MenuBtn.Parent=BottomRow
@@ -786,14 +809,15 @@ end
 local function applyTopDownCamera()
 	local cam = Workspace.CurrentCamera
 	if cam.CameraType ~= Enum.CameraType.Scriptable then return end
+	local rot = CFrame.Angles(0, 0, math.rad(topDownRotation))
 	local char = player.Character
 	if char and char:FindFirstChild("HumanoidRootPart") then
 		local p = char.HumanoidRootPart.Position
-		local target = CFrame.new(Vector3.new(p.X, p.Y+topDownZoom, p.Z), p)
+		local target = CFrame.new(Vector3.new(p.X, p.Y+topDownZoom, p.Z), p) * rot
 		cam.CFrame = cam.CFrame:Lerp(target, 0.08)
 	else
 		local c = getMapCenter()
-		cam.CFrame = CFrame.new(Vector3.new(c.X,c.Y+topDownZoom,c.Z), c)
+		cam.CFrame = CFrame.new(Vector3.new(c.X,c.Y+topDownZoom,c.Z), c) * rot
 	end
 end
 
@@ -802,9 +826,11 @@ local function setTopDown(enabled)
 	local cam = Workspace.CurrentCamera
 	if enabled then
 		cam.CameraType = Enum.CameraType.Scriptable
-		TopDownBtn.BackgroundColor3 = Color3.fromRGB(55,138,221)
-		TopDownBtn.TextColor3       = Color3.new(1,1,1)
-		TopDownBtn.Text             = "📷 Vista Normal [V]"
+		TopDownBtn.BackgroundColor3       = Color3.fromRGB(55,138,221)
+		TopDownBtn.TextColor3             = Color3.new(1,1,1)
+		TopDownBtn.Text                   = "📷 Vista Normal [V]"
+		TopDownRotateBtn.BackgroundColor3 = Color3.fromRGB(40,80,55)
+		TopDownRotateBtn.TextColor3       = Color3.fromRGB(160,230,180)
 		applyTopDownCamera()
 		spawnTopDownLabels()
 	else
@@ -819,19 +845,34 @@ local function setTopDown(enabled)
 				)
 			end
 		end)
-		topDownZoom = TOP_DOWN_HEIGHT
-		TopDownBtn.BackgroundColor3 = Color3.fromRGB(40,40,60)
-		TopDownBtn.TextColor3       = Color3.fromRGB(180,180,220)
-		TopDownBtn.Text             = "📷 Vista Topo [V]"
+		topDownZoom     = TOP_DOWN_HEIGHT
+		rotateIdx       = 1
+		topDownRotation = 0
+		TopDownBtn.BackgroundColor3       = Color3.fromRGB(40,40,60)
+		TopDownBtn.TextColor3             = Color3.fromRGB(180,180,220)
+		TopDownBtn.Text                   = "📷 Vista Topo [V]"
+		TopDownRotateBtn.BackgroundColor3 = Color3.fromRGB(30,30,42)
+		TopDownRotateBtn.TextColor3       = Color3.fromRGB(90,90,110)
+		TopDownRotateBtn.Text             = "↻ 360° [R]"
 		clearTopDownLabels()
 	end
 end
 
+local function cycleTopDownRotation()
+	if not topDownEnabled then return end
+	rotateIdx = (rotateIdx % #ROTATE_STEPS) + 1
+	topDownRotation = ROTATE_STEPS[rotateIdx]
+	local display = topDownRotation == 0 and 360 or topDownRotation
+	TopDownRotateBtn.Text = "↻ " .. display .. "° [R]"
+end
+
 TopDownBtn.MouseButton1Click:Connect(function() setTopDown(not topDownEnabled) end)
+TopDownRotateBtn.MouseButton1Click:Connect(cycleTopDownRotation)
 
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then return end
 	if input.KeyCode == Enum.KeyCode.V then setTopDown(not topDownEnabled) end
+	if input.KeyCode == Enum.KeyCode.R and topDownEnabled then cycleTopDownRotation() end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
@@ -1097,8 +1138,8 @@ local function drawMinimap()
 			local n1, n2, w = edge[1], edge[2], edge[3]
 			local np1=nodePos[n1]; local np2=nodePos[n2]
 			if np1 and np2 then
-			local p1x=(np1.x-mnX)/rX; local p1z=(np1.z-mnZ)/rZ
-			local p2x=(np2.x-mnX)/rX; local p2z=(np2.z-mnZ)/rZ
+			local p1x=1-(np1.x-mnX)/rX; local p1z=1-(np1.z-mnZ)/rZ
+			local p2x=1-(np2.x-mnX)/rX; local p2z=1-(np2.z-mnZ)/rZ
 
 			local key    = n1<n2 and (n1.."__"..n2) or (n2.."__"..n1)
 			local walked = walkedSet[key]
@@ -1144,7 +1185,7 @@ local function drawMinimap()
 	for _, name in ipairs(gameState.nodes) do
 		local np = nodePos[name]
 		if np then
-		local px=(np.x-mnX)/rX; local pz=(np.z-mnZ)/rZ
+		local px=1-(np.x-mnX)/rX; local pz=1-(np.z-mnZ)/rZ
 		local dot=Instance.new("Frame")
 		dot.AnchorPoint=Vector2.new(0.5,0.5); dot.ZIndex=6
 		Instance.new("UICorner",dot).CornerRadius=UDim.new(1,0)
@@ -1269,9 +1310,13 @@ GameStateRemote.OnClientEvent:Connect(function(data)
 	prevPlayerPos  = data.playerPos
 	gameState      = data
 
-	-- Always show game UI (StartMenu may have been re-shown by Menu button)
-	StartMenu.Visible = false; MainContainer.Visible = true
-	Overlay.Visible   = false
+	-- Show game UI, unless the player intentionally opened the Menu screen
+	-- (a respawn mid-round can still fire this event; we keep gameState in
+	-- sync in the background but don't yank the player out of the menu).
+	if not viewingMenu then
+		StartMenu.Visible = false; MainContainer.Visible = true
+		Overlay.Visible   = false
+	end
 	-- FIX: don't blindly hide the timeout FailOverlay on every payload.
 	-- The server doesn't enforce the timer, so a player can keep moving
 	-- after time runs out; previously that next move's GameStateRemote
@@ -1367,6 +1412,7 @@ end)
 local function enterFreeRoam()
 	freeRoamActive = true
 	gameStarted    = false      -- prevent stale GameStateRemote events from showing game UI
+	viewingMenu    = false
 
 	-- Hide everything game-related
 	StartMenu.Visible         = false
@@ -1423,6 +1469,7 @@ MenuBtn.MouseButton1Click:Connect(function()
 	MainContainer.Visible=false; StartMenu.Visible=true
 	freeRoamActive=false; FreeRoamMenuBtn.Visible=false; FreeRoamDestroyBtn.Visible=false
 	stopTimer(); if topDownEnabled then setTopDown(false) end
+	viewingMenu = true
 	-- Note: gameStarted stays true so respawn fires are still handled
 end)
 
@@ -1430,6 +1477,7 @@ BtnStart.MouseButton1Click:Connect(function()
 	-- FIX: set the flag BEFORE firing remotes, so the response from
 	-- ResetGame is processed correctly.
 	gameStarted = true
+	viewingMenu = false
 	StartMenu.Visible=false; MainContainer.Visible=true
 	SetMode:FireServer(selectedMode); ResetGame:FireServer()
 end)
@@ -1444,8 +1492,8 @@ RunService.RenderStepped:Connect(function(dt)
 		if char and char:FindFirstChild("HumanoidRootPart") then
 			local pos = char.HumanoidRootPart.Position
 			PlayerIcon.Position = UDim2.new(
-				math.clamp((pos.X-minimapMinX)/minimapRangeX,0,1), 0,
-				math.clamp((pos.Z-minimapMinZ)/minimapRangeZ,0,1), 0)
+				math.clamp(1-(pos.X-minimapMinX)/minimapRangeX,0,1), 0,
+				math.clamp(1-(pos.Z-minimapMinZ)/minimapRangeZ,0,1), 0)
 		end
 	end
 
@@ -1458,6 +1506,15 @@ RunService.RenderStepped:Connect(function(dt)
 		TimerLabel.TextColor3=col; TimerFill.BackgroundColor3=col
 		TimerFill.Size=UDim2.new(math.max(pct,0),0,1,0)
 		TimerLabel.Text="⏱ "..tostring(math.ceil(math.max(timerRemaining,0)))
+		-- Start pulsing the bar background when time is critically low
+		if pct <= TIMER_PULSE_THRESHOLD and timerPulseTween == nil then
+			timerPulseTween = TweenService:Create(
+				TimerBar,
+				TweenInfo.new(0.35, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+				{ BackgroundColor3 = Color3.fromRGB(110, 15, 15) }
+			)
+			timerPulseTween:Play()
+		end
 		if timerRemaining <= 0 then
 			timerActive=false
 			TimerFill.BackgroundColor3=Color3.fromRGB(255,0,0)
@@ -1474,4 +1531,4 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 end)
 
-print("[DijkstraClient] v13 Loaded.")
+print("[DijkstraClient] v15 Loaded.")
